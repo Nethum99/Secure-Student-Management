@@ -1,4 +1,4 @@
-package com.nethum.springsecuirtydemo.Controller;
+package com.nethum.springsecuirtydemo.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
