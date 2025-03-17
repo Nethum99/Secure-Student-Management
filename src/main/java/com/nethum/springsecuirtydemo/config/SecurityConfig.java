@@ -3,9 +3,11 @@ package com.nethum.springsecuirtydemo.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
@@ -18,6 +20,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -25,6 +28,9 @@ public class SecurityConfig {
 
     @Autowired
     private UserDetailsService userDetailsService;
+
+    @Autowired
+    private JwtFilter jwtFilter;    // jwt filter defined manually
 
     @Bean
     public AuthenticationProvider authenticationProvider(){
@@ -62,12 +68,17 @@ public class SecurityConfig {
 
 
 
-        http.csrf(Customizer-> Customizer.disable());
-        http.authorizeHttpRequests(request -> request.anyRequest().authenticated());
+        http.csrf(Customizer-> Customizer.disable())
+                .authorizeHttpRequests(request -> request
+                        .requestMatchers("register","login")    //once a user try to login system wants to create a new token.Then go to user controller
+                        .permitAll()
+                        .anyRequest().authenticated())
+
 //        http.formLogin(Customizer.withDefaults());
-        http.httpBasic(Customizer.withDefaults());
-        http.sessionManagement(session-> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-//
+//        http.httpBasic(Customizer.withDefaults());
+                        .sessionManagement(session-> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        .addFilterBefore(jwtFilter,UsernamePasswordAuthenticationFilter.class);     // when user request comes backedn have responsibility to filter that requests
+        //So we have to inform system to we are adding new filter(jwt filter) before the UsernamePasswordAthenticationFilter
         return http.build();
     }
 
@@ -89,4 +100,9 @@ public class SecurityConfig {
 //                .build();
 //        return new InMemoryUserDetailsManager(user,admin);
 //    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception{
+        return configuration.getAuthenticationManager();
+    }
 }
