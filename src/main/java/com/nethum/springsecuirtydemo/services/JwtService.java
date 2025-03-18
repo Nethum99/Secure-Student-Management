@@ -1,10 +1,11 @@
 package com.nethum.springsecuirtydemo.services;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import com.nethum.springsecuirtydemo.model.User;
+import com.nethum.springsecuirtydemo.repo.UserRepo;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,9 @@ import java.util.function.Function;
 
 @Service
 public class JwtService {
+
+    @Autowired
+    private UserRepo userRepo;
 
     private static final String SECRET = "TmV3U2VjcmV0S2V5Rm9ySldUU2lnbmluZ1B1cnBvc2VzMTIzNDU2Nzg=\r\n";
 
@@ -42,7 +46,7 @@ public class JwtService {
         }
     }
 
-    public String generateToken(String userName) {      //generate token
+    public String generateAccessToken(String userName) {      //generate token
 
         Map<String, Object> claims = new HashMap<>();
 
@@ -50,9 +54,25 @@ public class JwtService {
                 .setClaims(claims)
                 .setSubject(userName)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis()+1000*60*3))  //expirations is 3 minutes
-                .signWith(getKey(), SignatureAlgorithm.HS256).compact();
+                .setExpiration(new Date(System.currentTimeMillis()+1000*60*1))  //expirations is 3 minutes
+                .signWith(getKey(), SignatureAlgorithm.HS256)
+                .compact();
     }
+
+    // Generate Refresh Token (long-lived)
+    public String generateRefreshToken(String userName) {
+        Map<String, Object> claims = new HashMap<>();
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(userName)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))  // Refresh token expires in 24 hours
+                .signWith(getKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+
 
     private Key getKey() {
 
@@ -78,9 +98,32 @@ public class JwtService {
 
     }
 
-    public boolean validateToken(String token, UserDetails userDetails) {
-        final String userName = extractUserName(token);
-        return (userName.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    public boolean validateToken(String token) {
+        try {
+            final String userName = extractUserName(token);  // Extract username from token
+
+            // Check token expiration and the username
+            if (userName != null && !isTokenExpired(token)) {
+                User user = userRepo.findByUserName(userName);  // Ensure the user exists in DB
+                if (user != null) {
+                    // Verify the token's signature
+                    Jwts.parserBuilder()
+                            .setSigningKey(getKey())  // Use the same key used for signing the token
+                            .build()
+                            .parseClaimsJws(token);  // This will throw exceptions if signature is invalid
+                    return true;
+                }
+            }
+        } catch (SignatureException e) {
+            System.out.println("JWT signature does not match. Token is invalid.");
+        } catch (ExpiredJwtException e) {
+            System.out.println("JWT token is expired.");
+        } catch (MalformedJwtException e) {
+            System.out.println("JWT token is malformed.");
+        } catch (Exception e) {
+            System.out.println("Unexpected error during JWT validation.");
+        }
+        return false; // Return false if any error occurs
     }
 
     private boolean isTokenExpired(String token){

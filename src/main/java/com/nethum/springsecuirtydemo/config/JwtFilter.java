@@ -2,6 +2,8 @@ package com.nethum.springsecuirtydemo.config;
 
 import com.nethum.springsecuirtydemo.services.JwtService;
 import com.nethum.springsecuirtydemo.services.MyUserDetailService;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,14 +42,39 @@ public class JwtFilter extends OncePerRequestFilter {
 
         if(userName != null && SecurityContextHolder.getContext().getAuthentication()==null){
 
-            UserDetails userDetails = applicationContext.getBean(MyUserDetailService.class).loadUserByUsername(userName);
+            try{
+                if(jwtService.validateToken(token)){
+                    UserDetails userDetails = applicationContext.getBean(MyUserDetailService.class).loadUserByUsername(userName);
 
-            if(jwtService.validateToken(token, userDetails)){
-                UsernamePasswordAuthenticationToken authenticationToken =
-                        new UsernamePasswordAuthenticationToken(userDetails,null,userDetails.getAuthorities());
+//            if(jwtService.validateToken(token, userDetails)){
+//                UsernamePasswordAuthenticationToken authenticationToken =
+//                        new UsernamePasswordAuthenticationToken(userDetails,null,userDetails.getAuthorities());
 
-                authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                // Create the authentication token only if the token is valid
+                    UsernamePasswordAuthenticationToken authenticationToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+
+                     authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                     SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                }
+                else{
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token");
+                    return; // Return early if token is invalid
+                }
+            }
+            catch (SignatureException e) {
+                // Handle invalid signature
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT signature");
+                return;
+            } catch (ExpiredJwtException e) {
+                // Handle expired token
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has expired");
+                return;
+            } catch (Exception e) {
+                // Handle other exceptions
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unexpected error during token validation");
+                return;
             }
         }
 

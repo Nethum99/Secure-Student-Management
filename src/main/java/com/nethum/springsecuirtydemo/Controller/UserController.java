@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 public class UserController {
 
@@ -31,15 +34,38 @@ public class UserController {
     }
 
     @PostMapping("login")   //when user login system have to generate a token
-    public String login(@RequestBody User user){
+    public Map<String, String> login(@RequestBody User user){
         Authentication authentication = authenticationManager
                 .authenticate(new UsernamePasswordAuthenticationToken(user.getUserName(), user.getPassword()));     //Before generate token system have to check if username and password correct
 
         if(authentication.isAuthenticated()){   //if username and password correct then create a token
-            return jwtService.generateToken(user.getUserName());       //in jwtservice that method doing it and after generating token user receive it as String
+           // return jwtService.generateAccessToken(user.getUserName());       //in jwtservice that method doing it and after generating token user receive it as String
+
+            String accessToken = jwtService.generateAccessToken(user.getUserName());
+            String refreshToken = jwtService.generateRefreshToken(user.getUserName());
+
+            Map<String, String> tokens = new HashMap<>();
+            tokens.put("accessToken", accessToken);
+            tokens.put("refreshToken", refreshToken);
+
+            return tokens;
+
         }
         else {
-            return "Login failed";
+            throw new RuntimeException("Login Failed");
         }
+    }
+
+    @PostMapping("refresh-token")   // Refresh the access token
+    public String refreshToken(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+        System.out.println(refreshToken);
+
+        if (refreshToken != null && jwtService.validateToken(refreshToken)) {
+            String userName = jwtService.extractUserName(refreshToken);
+            return jwtService.generateAccessToken(userName);  // Return a new access token
+        }
+
+        throw new RuntimeException("Invalid refresh token");
     }
 }

@@ -70,7 +70,7 @@ public class SecurityConfig {
 
         http.csrf(Customizer-> Customizer.disable())
                 .authorizeHttpRequests(request -> request
-                        .requestMatchers("register","login")    //once a user try to login system wants to create a new token.Then go to user controller
+                        .requestMatchers("register","login","refresh-token")    //once a user try to login system wants to create a new token.Then go to user controller
                         .permitAll()
                         .anyRequest().authenticated())
 
