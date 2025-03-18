@@ -17,4 +17,8 @@ public class User {
 
     @Column(name = "password")  // Explicitly mapping the column name
     private String password;
+
+    @Column(name = "role")  // New column to store the role of the user
+    private String role;  // Example: "USER" or "ADMIN"
+
 }
