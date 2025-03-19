@@ -68,10 +68,12 @@ public class SecurityConfig {
 
 
 
-        http.csrf(Customizer-> Customizer.disable())
-                .authorizeHttpRequests(request -> request
-                        .requestMatchers("register","login","refresh-token")    //once a user try to login system wants to create a new token.Then go to user controller
+        http.csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/user/register","/user/login","/user/refresh-token")    //once a user try to login system wants to create a new token.Then go to user controller
                         .permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN") // Admin-only endpoints
+                        .requestMatchers("/user/**").hasRole("USER")  // User-only endpoints
                         .anyRequest().authenticated())
 
 //        http.formLogin(Customizer.withDefaults());
